@@ -1,0 +1,26 @@
+{
+  "name": "pi-tok-speed",
+  "version": "1.0.0",
+  "description": "Live tokens/sec (tok/s) indicator for pi's footer — streaming estimate while the model writes, exact reading when it finishes",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "tokspeed",
+    "tokens-per-second",
+    "footer",
+    "statusline"
+  ],
+  "license": "MIT",
+  "author": "Gian Geralcus <g.geralcus@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/giangeralcus/pi-tok-speed"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  }
+}
