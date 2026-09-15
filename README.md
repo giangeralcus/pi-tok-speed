@@ -7,14 +7,15 @@ Live tokens/sec + spend tracker for the [pi coding agent](https://github.com/bad
 ```
 While streaming:   ⚡ ~54 tok/s · avg 57 · $0.0123 · ↓~1.2k tok
 Message finalized: ⚡ 58 tok/s · avg 57 · $0.0123 · 256 tok
-Turn ended:        ⚡ avg 57 tok/s · $0.0123 · 12 msg
+Turn ended:        ⚡ avg 57 tok/s (glm 51 · dsv4 69) · $0.0123 · 12 msg
 ```
 
 - **Live estimate** while the model is writing (chars/4 over text + thinking + toolcall deltas, throttled 250ms)
 - **Exact reading** per message from real usage counts over the decode window (first delta → finalize, TTFT excluded)
 - **Session average**: total exact output tokens ÷ total exact decode seconds, plus cumulative session cost and tokens
-- **Session end summary** appended to `~/.pi/agent/tok-speed-stats.jsonl` (model, messages, in/out tokens, cost, avg tok/s, decode seconds, price rates). Next session start shows the previous summary as a toast.
-- **Price rate announcements** on model change (in/out per M tokens, cache read)
+- **Per-model breakdown** when multiple models are used in one session — turn-end summary shows each model's avg tok/s, model-change toasts show that model's own session stats, and the stats log gets a `perModel` object
+- **Price rate announcements** on model change (in/out per M tokens, cache read) — plus that model's own session stats (messages, avg tok/s, spend)
+- **Session end summary** appended to `~/.pi/agent/tok-speed-stats.jsonl` (model, messages, in/out tokens, cost, avg tok/s, decode seconds, price rates, per-model breakdown). Next session start shows the previous summary as a toast.
 - **`/tokspeed`** command to toggle the indicator on/off
 - pi's default footer (usage + cost) stays untouched — this adds a status line
 

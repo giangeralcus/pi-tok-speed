@@ -58,6 +58,11 @@ export default function (pi: ExtensionAPI) {
 	let totalSec = 0; // exact decode seconds
 	let msgCount = 0;
 
+	// per-model session totals (exact, keyed by the message's own model field)
+	const perModel = new Map<string, { msgs: number; inTok: number; tokens: number; cost: number; sec: number }>();
+	const shortModel = (id: string) =>
+		id.split("/").pop()!.split("-").slice(0, 2).join("-");
+
 	const avg = () => (totalSec > 0 ? totalOut / totalSec : 0);
 
 	pi.on("session_start", async (_event, ctx) => {
@@ -66,6 +71,7 @@ export default function (pi: ExtensionAPI) {
 		totalCost = 0;
 		totalSec = 0;
 		msgCount = 0;
+		perModel.clear();
 		t0 = 0;
 		chars = 0;
 		if (!ctx.hasUI) return;
@@ -117,11 +123,16 @@ export default function (pi: ExtensionAPI) {
 	pi.on("model_select", async (event, ctx) => {
 		if (!ctx.hasUI) return;
 		const c = event.model?.cost;
-		if (!c) return;
-		ctx.ui.notify(
-			`${event.model.id}: in $${c.input}/M · out $${c.output}/M tok${c.cacheRead ? ` · cache read $${c.cacheRead}/M` : ""}`,
-			"info",
-		);
+		const s = perModel.get(event.model?.id ?? "");
+		const sesPart =
+			s && s.msgs > 0 && s.sec > 0
+				? ` · sesi ini: ${s.msgs} msg · avg ${(s.tokens / s.sec).toFixed(0)} tok/s · ${money(s.cost)}`
+				: "";
+		if (c)
+			ctx.ui.notify(
+				`${event.model.id}: in $${c.input}/M · out $${c.output}/M tok${c.cacheRead ? ` · cache read $${c.cacheRead}/M` : ""}${sesPart}`,
+				"info",
+			);
 	});
 
 	pi.on("message_update", async (event, ctx) => {
@@ -168,6 +179,14 @@ export default function (pi: ExtensionAPI) {
 		totalCost += m.usage?.cost?.total ?? 0;
 		totalSec += elapsed;
 		msgCount += 1;
+		const mid = m.model || ctx.model?.id || "?";
+		const pm = perModel.get(mid) ?? { msgs: 0, inTok: 0, tokens: 0, cost: 0, sec: 0 };
+		pm.msgs += 1;
+		pm.inTok += m.usage?.input ?? 0;
+		pm.tokens += out;
+		pm.cost += m.usage?.cost?.total ?? 0;
+		pm.sec += elapsed;
+		perModel.set(mid, pm);
 		const a = avg();
 		dbg(
 			`final out=${out} elapsed=${elapsed.toFixed(2)}s tps=${tps.toFixed(1)} avg=${a.toFixed(1)} msgs=${msgCount} cost=${totalCost.toFixed(4)}`,
@@ -185,9 +204,16 @@ export default function (pi: ExtensionAPI) {
 		if (!enabled || !ctx.hasUI) return;
 		const a = avg();
 		if (msgCount === 0) return;
+		let breakdown = "";
+		if (perModel.size > 1) {
+			const parts = [...perModel.entries()].map(([id, s]) =>
+				`${shortModel(id)} ${s.sec > 0 ? (s.tokens / s.sec).toFixed(0) : "?"}`,
+			);
+			breakdown = ` (${parts.slice(0, 3).join(" · ")}${parts.length > 3 ? " …" : ""})`;
+		}
 		ctx.ui.setStatus(
 			KEY,
-			ctx.ui.theme.fg("dim", `⚡ avg ${a.toFixed(0)} tok/s · ${money(totalCost)} · ${msgCount} msg`),
+			ctx.ui.theme.fg("dim", `⚡ avg ${a.toFixed(0)} tok/s${breakdown} · ${money(totalCost)} · ${msgCount} msg`),
 		);
 	});
 
@@ -199,6 +225,7 @@ export default function (pi: ExtensionAPI) {
 		let outTok = totalOut;
 		let cost = totalCost;
 		let msgs = msgCount;
+		const histPerModel = new Map<string, { msgs: number; inputTokens: number; outputTokens: number; cost: number }>();
 		try {
 			inTok = 0;
 			outTok = 0;
@@ -212,6 +239,13 @@ export default function (pi: ExtensionAPI) {
 				outTok += m.usage.output ?? 0;
 				cost += m.usage.cost?.total ?? 0;
 				msgs += 1;
+				const mid = m.model || "?";
+				const pm = histPerModel.get(mid) ?? { msgs: 0, inputTokens: 0, outputTokens: 0, cost: 0 };
+				pm.msgs += 1;
+				pm.inputTokens += m.usage.input ?? 0;
+				pm.outputTokens += m.usage.output ?? 0;
+				pm.cost += m.usage.cost?.total ?? 0;
+				histPerModel.set(mid, pm);
 			}
 		} catch {
 			/* keep tracked totals */
@@ -222,6 +256,16 @@ export default function (pi: ExtensionAPI) {
 		}
 		const a = totalSec > 0 ? outTok / totalSec : 0;
 		const rates = ctx.model?.cost;
+		const perModelOut: Record<string, unknown> = {};
+		for (const [id, hp] of histPerModel.entries()) {
+			const rt = perModel.get(id);
+			perModelOut[id] = {
+				...hp,
+				cost: Number(hp.cost.toFixed(6)),
+				avgTokPerSec: rt && rt.sec > 0 ? Number((rt.tokens / rt.sec).toFixed(2)) : null,
+				decodeSeconds: rt && rt.sec > 0 ? Number(rt.sec.toFixed(2)) : null,
+			};
+		}
 		const record = {
 			ts: new Date().toISOString(),
 			reason: event.reason,
@@ -235,6 +279,7 @@ export default function (pi: ExtensionAPI) {
 			decodeSeconds: totalSec > 0 ? Number(totalSec.toFixed(2)) : null,
 			rateInPerM: rates?.input ?? null,
 			rateOutPerM: rates?.output ?? null,
+			perModel: Object.keys(perModelOut).length > 0 ? perModelOut : undefined,
 		};
 		try {
 			appendFileSync(STATS_PATH, `${JSON.stringify(record)}\n`);
