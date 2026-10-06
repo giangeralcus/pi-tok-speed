@@ -1,7 +1,7 @@
 {
   "name": "pi-tok-speed",
-  "version": "1.3.0",
-  "description": "Live tokens/sec (tok/s) indicator for pi's footer — streaming estimate while the model writes, exact reading when it finishes",
+  "version": "1.4.0",
+  "description": "DEPRECATED — merged into pi-cc-ui-id (https://github.com/giangeralcus/pi-cc-ui-id). Install that instead.",
   "keywords": [
     "pi-package",
     "pi",

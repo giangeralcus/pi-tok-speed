@@ -1,5 +1,15 @@
 # pi-tok-speed
 
+> ⚠️ **DEPRECATED** — merged into [pi-cc-ui-id](https://github.com/giangeralcus/pi-cc-ui-id) (v0.4.0+).
+> All features live there now: precise per-message tok/s, session average, cost,
+> per-model breakdown, and the JSONL session log (`~/.pi/agent/tok-speed-stats.jsonl`,
+> path unchanged). The footer live estimate was dropped on purpose — the cc-ui-id
+> spinner already shows live tok/s while streaming. Install pi-cc-ui-id instead:
+>
+> ```bash
+> pi install git:github.com/giangeralcus/pi-cc-ui-id
+> ```
+
 Live tokens/sec + spend tracker for the [pi coding agent](https://github.com/badlogic/pi-mono) footer.
 
 ## What you get
